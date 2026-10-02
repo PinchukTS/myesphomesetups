@@ -1,0 +1,59 @@
+esphome:
+  name: esphome-smartair2
+  friendly_name: Кондиционер esphome
+
+# Аппаратная платформа (ESP8266 на базе NodeMCU v2)
+esp8266:
+  board: nodemcuv2
+
+# Логирование через UART полностью отключено (baud_rate: 0),
+# чтобы отладочный мусор не мешал обмену данными с модулем кондиционера
+logger:
+  baud_rate: 0
+
+# Синхронизация времени по SNTP
+time:
+  - platform: sntp
+
+# Настройка физических выводов (пинов) платы
+output:
+  - platform: gpio
+    id: wifi_error
+    pin: GPIO4
+
+# Настройка подключения к беспроводной сети и индикации статуса. 
+wifi:
+  ssid:     !secret wifi2_ssid
+  password: !secret wifi2_password
+  on_disconnect:
+    - output.turn_on: wifi_error
+  on_connect:
+    - output.turn_off: wifi_error
+
+# Подключение к Home Assistant
+api:
+
+# Поддержка беспроводного обновления прошивки «по воздуху» (OTA)
+ota:
+  - platform: esphome
+
+# Аппаратный UART-порт для связи с кондиционером
+uart:
+  id: haier_uart
+  tx_pin: GPIO1
+  rx_pin: GPIO3
+  baud_rate: 9600
+
+# Интеграция кондиционера через протокол Haier (SmartAir2)
+climate:
+  - platform: haier
+    id: haier_ac
+    name: "AC GES-NX35IN"
+    protocol: smartair2
+    uart_id: haier_uart
+    # Опции
+    alternative_swing_control: true
+    supported_presets: []
+    supported_swing_modes:
+      - "OFF"
+      - "VERTICAL"

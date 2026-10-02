@@ -1,0 +1,474 @@
+esphome:
+  name: esphome-anenji
+  friendly_name: Инвертор Anenji
+
+# Аппаратная платформа (ESP32)
+esp32:
+  board: esp32dev
+  framework:
+    type: arduino
+    advanced:
+      minimum_chip_revision: "3.1"
+      sram1_as_iram: true
+
+# Логирование через UART полностью отключено (baud_rate: 0),
+# чтобы отладочный мусор не мешал обмену данными с модулем кондиционера
+logger:
+  level: INFO
+  baud_rate: 0
+
+# Синхронизация времени по SNTP
+time:
+  - platform: sntp
+
+# Настройка подключения к беспроводной сети. 
+wifi:
+  ssid:     !secret wifi2_ssid
+  password: !secret wifi2_password
+
+# Подключение к Home Assistant
+api:
+
+# Поддержка беспроводного обновления прошивки «по воздуху» (OTA)
+ota:
+  - platform: esphome
+
+# Аппаратный UART-порт для связи с инвертором
+uart:
+  - id: anenji_uart
+    baud_rate: 9600
+    tx_pin: GPIO16
+    rx_pin: GPIO17
+    stop_bits: 1
+
+modbus:
+  - id: anenji_modbus
+    uart_id: anenji_uart
+    send_wait_time: 200ms
+
+modbus_controller:
+  - id: anenji_ctrl
+    address: 0x01
+    modbus_id: anenji_modbus
+    update_interval: 10s
+
+sensor:
+  # ==================================================
+  # СЕТЬ (GRID / MAINS)
+  # ==================================================
+
+  # Напряжение сети
+  - platform: modbus_controller
+    modbus_controller_id: anenji_ctrl
+    id: grid_voltage
+    name: "Grid Voltage"
+    address: 202
+    register_type: holding
+    value_type: S_WORD
+    unit_of_measurement: "V"
+    device_class: voltage
+    state_class: measurement
+    accuracy_decimals: 1
+    filters:
+      - multiply: 0.1
+
+  # Частота сети
+  - platform: modbus_controller
+    modbus_controller_id: anenji_ctrl
+    id: grid_frequency
+    name: "Grid Frequency"
+    address: 203
+    register_type: holding
+    value_type: S_WORD
+    unit_of_measurement: "Hz"
+    device_class: frequency
+    state_class: measurement
+    accuracy_decimals: 2
+    filters:
+      - multiply: 0.01
+
+  # Мощность сети
+  - platform: modbus_controller
+    modbus_controller_id: anenji_ctrl
+    id: grid_power
+    name: "Grid Power"
+    address: 204
+    register_type: holding
+    value_type: S_WORD
+    unit_of_measurement: "W"
+    device_class: power
+    state_class: measurement
+    accuracy_decimals: 0
+
+  # ==================================================
+  # ВНУТРЕННИЕ ПАРАМЕТРЫ ИНВЕРТОРА (INVERTER INTERNAL)
+  # ==================================================
+
+  # Эффективное напряжение инвертора
+  - platform: modbus_controller
+    modbus_controller_id: anenji_ctrl
+    id: inverter_voltage
+    name: "Effective Inverter Voltage"
+    address: 205
+    register_type: holding
+    value_type: S_WORD
+    unit_of_measurement: "V"
+    device_class: voltage
+    state_class: measurement
+    accuracy_decimals: 1
+    filters:
+      - multiply: 0.1
+
+  # Эффективный ток инвертора
+  - platform: modbus_controller
+    modbus_controller_id: anenji_ctrl
+    id: inverter_current
+    name: "Effective Inverter Current"
+    address: 206
+    register_type: holding
+    value_type: S_WORD
+    unit_of_measurement: "A"
+    device_class: current
+    state_class: measurement
+    accuracy_decimals: 1
+    filters:
+      - multiply: 0.1
+
+  # Частота инвертора
+  - platform: modbus_controller
+    modbus_controller_id: anenji_ctrl
+    id: inverter_freq
+    name: "Inverter Frequency"
+    address: 207
+    register_type: holding
+    value_type: S_WORD
+    unit_of_measurement: "Hz"
+    device_class: frequency
+    state_class: measurement
+    accuracy_decimals: 2
+    filters:
+      - multiply: 0.01
+
+  # Средняя мощность инвертора
+  - platform: modbus_controller
+    modbus_controller_id: anenji_ctrl
+    id: inverter_avg_power
+    name: "Average Inverter Power"
+    address: 208
+    register_type: holding
+    value_type: S_WORD
+    unit_of_measurement: "W"
+    device_class: power
+    state_class: measurement
+    accuracy_decimals: 0
+
+  # Мощность заряда инвертора
+  - platform: modbus_controller
+    modbus_controller_id: anenji_ctrl
+    id: inverter_charging_power
+    name: "Inverter Charging Power"
+    address: 209
+    register_type: holding
+    value_type: S_WORD
+    unit_of_measurement: "W"
+    device_class: power
+    state_class: measurement
+    accuracy_decimals: 0
+
+  # ==================================================
+  # НАГРУЗКА / ВЫХОД (LOAD / OUTPUT)
+  # ==================================================
+
+  # Выходное напряжение
+  - platform: modbus_controller
+    modbus_controller_id: anenji_ctrl
+    id: output_voltage
+    name: "Output Effective Voltage"
+    address: 210
+    register_type: holding
+    value_type: S_WORD
+    unit_of_measurement: "V"
+    device_class: voltage
+    state_class: measurement
+    accuracy_decimals: 1
+    filters:
+      - multiply: 0.1
+
+  # Выходной ток
+  - platform: modbus_controller
+    modbus_controller_id: anenji_ctrl
+    id: output_current
+    name: "Output Effective Current"
+    address: 211
+    register_type: holding
+    value_type: S_WORD
+    unit_of_measurement: "A"
+    device_class: current
+    state_class: measurement
+    accuracy_decimals: 1
+    filters:
+      - multiply: 0.1
+
+  # Выходная частота
+  - platform: modbus_controller
+    modbus_controller_id: anenji_ctrl
+    id: output_frequency
+    name: "Output Frequency"
+    address: 212
+    register_type: holding
+    value_type: S_WORD
+    unit_of_measurement: "Hz"
+    device_class: frequency
+    state_class: measurement
+    accuracy_decimals: 2
+    filters:
+      - multiply: 0.01
+
+  # Активная мощность нагрузки
+  - platform: modbus_controller
+    modbus_controller_id: anenji_ctrl
+    id: output_active_power
+    name: "Output Active Power"
+    address: 213
+    register_type: holding
+    value_type: S_WORD
+    unit_of_measurement: "W"
+    device_class: power
+    state_class: measurement
+    accuracy_decimals: 0
+
+  # Полная мощность нагрузки
+  - platform: modbus_controller
+    modbus_controller_id: anenji_ctrl
+    id: output_apparent_power
+    name: "Output Apparent Power"
+    address: 214
+    register_type: holding
+    value_type: S_WORD
+    unit_of_measurement: "VA"
+    device_class: apparent_power
+    state_class: measurement
+    accuracy_decimals: 0
+
+  # ==================================================
+  # АККУМУЛЯТОР (BATTERY)
+  # ==================================================
+
+  # Напряжение аккумулятора
+  - platform: modbus_controller
+    modbus_controller_id: anenji_ctrl
+    id: battery_voltage
+    name: "Battery Voltage"
+    address: 215
+    register_type: holding
+    value_type: S_WORD
+    unit_of_measurement: "V"
+    device_class: voltage
+    state_class: measurement
+    accuracy_decimals: 1
+    filters:
+      - multiply: 0.1
+
+  # Ток аккумулятора
+  - platform: modbus_controller
+    modbus_controller_id: anenji_ctrl
+    id: battery_current
+    name: "Battery Current"
+    address: 216
+    register_type: holding
+    value_type: S_WORD
+    unit_of_measurement: "A"
+    device_class: current
+    state_class: measurement
+    accuracy_decimals: 1
+    filters:
+      - multiply: 0.1
+
+  # Мощность аккумулятора
+  - platform: modbus_controller
+    modbus_controller_id: anenji_ctrl
+    id: battery_power
+    name: "Battery Power"
+    address: 217
+    register_type: holding
+    value_type: S_WORD
+    unit_of_measurement: "W"
+    device_class: power
+    state_class: measurement
+    accuracy_decimals: 0
+
+  # Направленный ток аккумулятора
+  - platform: modbus_controller
+    modbus_controller_id: anenji_ctrl
+    id: battery_directional_current
+    name: "Battery Directional Current"
+    address: 232
+    register_type: holding
+    value_type: S_WORD
+    unit_of_measurement: "A"
+    device_class: current
+    state_class: measurement
+    accuracy_decimals: 1
+    filters:
+      - multiply: 0.1
+
+  # Средний ток заряда инвертора
+  - platform: modbus_controller
+    modbus_controller_id: anenji_ctrl
+    id: inv_charging_avg_current
+    name: "Inverter Charging Average Current"
+    address: 233
+    register_type: holding
+    value_type: S_WORD
+    unit_of_measurement: "A"
+    device_class: current
+    state_class: measurement
+    accuracy_decimals: 1
+    filters:
+      - multiply: 0.1
+
+  # ==================================================
+  # СОЛНЕЧНЫЕ ПАНЕЛИ (SOLAR / PV)
+  # ==================================================
+
+  # Напряжение PV
+  - platform: modbus_controller
+    modbus_controller_id: anenji_ctrl
+    id: pv_voltage
+    name: "PV Voltage"
+    address: 219
+    register_type: holding
+    value_type: S_WORD
+    unit_of_measurement: "V"
+    device_class: voltage
+    state_class: measurement
+    accuracy_decimals: 1
+    filters:
+      - multiply: 0.1
+
+  # Ток PV
+  - platform: modbus_controller
+    modbus_controller_id: anenji_ctrl
+    id: pv_current
+    name: "PV Current"
+    address: 220
+    register_type: holding
+    value_type: S_WORD
+    unit_of_measurement: "A"
+    device_class: current
+    state_class: measurement
+    accuracy_decimals: 1
+    filters:
+      - multiply: 0.1
+
+  # Мощность PV
+  - platform: modbus_controller
+    modbus_controller_id: anenji_ctrl
+    id: pv_power
+    name: "PV Power"
+    address: 223
+    register_type: holding
+    value_type: S_WORD
+    unit_of_measurement: "W"
+    device_class: power
+    state_class: measurement
+    accuracy_decimals: 0
+
+  # Средняя мощность заряда от PV
+  - platform: modbus_controller
+    modbus_controller_id: anenji_ctrl
+    id: pv_charging_power
+    name: "PV Charging Average Power"
+    address: 224
+    register_type: holding
+    value_type: S_WORD
+    unit_of_measurement: "W"
+    device_class: power
+    state_class: measurement
+    accuracy_decimals: 0
+
+  # Средний ток заряда от PV
+  - platform: modbus_controller
+    modbus_controller_id: anenji_ctrl
+    id: pv_charging_current
+    name: "PV Charging Average Current"
+    address: 234
+    register_type: holding
+    value_type: S_WORD
+    unit_of_measurement: "A"
+    device_class: current
+    state_class: measurement
+    accuracy_decimals: 1
+    filters:
+      - multiply: 0.1
+
+  # ==================================================
+  # СЛУЖЕБНАЯ ГРУППА (DIAGNOSTICS & SERVICE)
+  # ==================================================
+
+  # Процент нагрузки
+  - platform: modbus_controller
+    modbus_controller_id: anenji_ctrl
+    id: load_percentage
+    name: "Load Percentage"
+    address: 225
+    register_type: holding
+    value_type: S_WORD
+    unit_of_measurement: "%"
+    state_class: measurement
+    accuracy_decimals: 0
+    icon: mdi:gauge
+
+  # Температура DC-DC
+  - platform: modbus_controller
+    modbus_controller_id: anenji_ctrl
+    id: dcdc_temperature
+    name: "DCDC Temperature"
+    address: 226
+    register_type: holding
+    value_type: S_WORD
+    unit_of_measurement: "°C"
+    device_class: temperature
+    state_class: measurement
+    accuracy_decimals: 0
+    icon: mdi:thermometer
+
+  # Температура инвертора
+  - platform: modbus_controller
+    modbus_controller_id: anenji_ctrl
+    id: inverter_temperature
+    name: "Inverter Temperature"
+    address: 227
+    register_type: holding
+    value_type: S_WORD
+    unit_of_measurement: "°C"
+    device_class: temperature
+    state_class: measurement
+    accuracy_decimals: 0
+    icon: mdi:thermometer
+
+  # Уровень заряда АКБ (SoC)
+  - platform: modbus_controller
+    modbus_controller_id: anenji_ctrl
+    id: battery_soc
+    name: "Battery State of Charge"
+    address: 229
+    register_type: holding
+    value_type: U_WORD
+    unit_of_measurement: "%"
+    device_class: battery
+    state_class: measurement
+    accuracy_decimals: 0
+
+  # Номинальная мощность инвертора
+  - platform: modbus_controller
+    modbus_controller_id: anenji_ctrl
+    id: rated_power
+    name: "Rated Power"
+    address: 643
+    register_type: holding
+    value_type: U_WORD
+    unit_of_measurement: "W"
+    device_class: power
+    accuracy_decimals: 0
+    icon: mdi:information-outline
